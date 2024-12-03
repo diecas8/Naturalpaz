@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geoportal</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+
+        #summary {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+            z-index: 9999;
+        }
+
+        #credits {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 9999;
+        }
+
+        #codFincaContainer {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+            z-index: 9999;
+        }
+
+        label {
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        select {
+            padding: 5px;
+            font-size: 16px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+    <div id="summary"></div>
+    <div id="credits">Geoportal elaborado por: Diego Castaño</div>
+
+    <!-- Buscador de códigos de finca -->
+    <div id="codFincaContainer">
+        <label for="codFinca">Selecciona un código de finca:</label>
+        <select id="codFinca">
+            <!-- Las opciones serán agregadas dinámicamente -->
+        </select>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-ajax/dist/leaflet.ajax.min.js"></script>
+    <script src="https://unpkg.com/leaflet-control-locate/dist/leaflet-control-locate.min.js"></script>
+
+    <script>
+        // Inicialización del mapa centrado en Colombia
+        var map = L.map('map').setView([4.570868, -74.297333], 6);
+
+        // Mapas base adicionales
+        var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
+
+        var stamenTerrainLayer = L.tileLayer('https://{s}.tile.stamen.com/terrain/{z}/{x}/{y}.jpg', {
+            attribution: '&copy; <a href="https://stamen.com/">Stamen Design</a>'
+        });
+
+        var esriImageryLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '&copy; <a href="https://www.esri.com/en-us/arcgis/products/arcgis-online/overview">Esri</a>'
+        });
+
+        // Añadir el mapa base predeterminado (OSM)
+        osmLayer.addTo(map);
+
+        // Cargar capas GeoJSON desde la carpeta "Geoportal" y aplicar la función onEachFeature
+        var hmpPolLayer = new L.GeoJSON.AJAX("Hmp_pol.geojson", {
+            style: styleHmp,  // Aplicamos el estilo a la capa Hmp
+            onEachFeature: onEachFeature
+        });
+
+        var sitiosLayer = new L.GeoJSON.AJAX("Sitios.geojson", {
+            onEachFeature: onEachFeature
+        });
+
+        var cercasLayer = new L.GeoJSON.AJAX("cercas.geojson", {
+            onEachFeature: onEachFeature
+        });
+
+        var fincasLayer = new L.GeoJSON.AJAX("Fincas.geojson", {
+            onEachFeature: onEachFeature
+        });
+
+        // Función para asignar colores según el tipo de Hmp
+        function getColor(tipoHmp) {
+            switch (tipoHmp) {
+                case "EV":
+                    return "green";  // Verde
+                case "ADP":
+                    return "lightgreen";  // Verde Claro
+                case "AF":
+                    return "red";  // Rojo
+                case "MC":
+                    return "yellow";  // Amarillo
+                default:
+                    return "gray";  // Gris para otros casos
+            }
+        }
+
+        // Función para crear un popup con información de las propiedades de cada feature
+        function onEachFeature(feature, layer) {
+            if (feature.properties) {
+                var popupContent = "<h4>Información:</h4><ul>";
+                
+                // Iterar sobre las propiedades del GeoJSON para mostrarlas
+                for (var property in feature.properties) {
+                    if (feature.properties.hasOwnProperty(property)) {
+                        popupContent += "<li><strong>" + property + ":</strong> " + feature.properties[property] + "</li>";
+                    }
+                }
+                popupContent += "</ul>";
+
+                // Agregar el popup al layer
+                layer.bindPopup(popupContent);
+            }
+        }
+
+        // Función para estilizar el Hmp según el tipo
+        function styleHmp(feature) {
+            return {
+                fillColor: getColor(feature.properties.TIPO_HMP),  // Usamos el atributo "TIPO_HMP" para asignar colores
+                weight: 2,
+                opacity: 1,
+                color: 'white',
+                fillOpacity: 0.7
+            };
+        }
+
+        // Función para estilizar las fincas (sin fondo y con línea color café)
+        function styleFincas(feature) {
+            return {
+                weight: 3,
+                color: 'brown',  // Línea color café
+                opacity: 1,
+                fillOpacity: 0  // Sin fondo
+            };
+        }
+
+        // Cargar la capa de Fincas y extraer los códigos
+        var fincaCodes = [];
+        var fincaLayer = new L.GeoJSON.AJAX("Fincas.geojson", {
+            onEachFeature: function (feature, layer) {
+                if (feature.properties && feature.properties.Cod_finca) {
+                    fincaCodes.push(feature.properties.Cod_finca);
+                }
+            }
+        });
+
+        fincaLayer.on('data:loaded', function () {
+            // Eliminar duplicados y ordenar alfabéticamente
+            fincaCodes = [...new Set(fincaCodes)].sort();
+
+            // Llenar el select con los códigos de finca
+            var selectElement = document.getElementById("codFinca");
+            fincaCodes.forEach(function (codigo) {
+                var option = document.createElement("option");
+                option.value = codigo;
+                option.textContent = codigo;
+                selectElement.appendChild(option);
+            });
+        });
+
+        // Función para resaltar la finca seleccionada
+        var selectedFincaLayer = null;
+        document.getElementById("codFinca").addEventListener("change", function () {
+            var selectedCode = this.value;
+
+            // Si ya hay una finca seleccionada, eliminamos su estilo resaltado
+            if (selectedFincaLayer) {
+                selectedFincaLayer.setStyle({ weight: 3, color: 'brown' });
+            }
+
+            // Buscar la finca seleccionada y resaltarla
+            fincasLayer.eachLayer(function (layer) {
+                if (layer.feature.properties.Cod_finca === selectedCode) {
+                    selectedFincaLayer = layer;
+                    layer.setStyle({ weight: 5, color: 'blue' });  // Resaltar con un borde más grueso y azul
+                    map.fitBounds(layer.getBounds());  // Centrar el mapa sobre la finca
+                }
+            });
+        });
+
+        // Control de capas
+        var baseMaps = {
+            "Mapa Base (OSM)": osmLayer,
+            "Mapa Base (Stamen Terrain)": stamenTerrainLayer,
+            "Mapa Base (Esri Imagery)": esriImageryLayer
+        };
+
+        var overlayMaps = {
+            "Fincas": fincasLayer,
+            "Hmp_pol": hmpPolLayer,
+            "Cercas": cercasLayer,
+            "Sitios": sitiosLayer
+        };
+
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
+
+        // Agregar geolocalización en tiempo real
+        L.control.locate({
+            position: 'topright',
+            drawCircle: true,
+            follow: true,
+            setView: true
+        }).addTo(map);
+
+        // Función para crear un resumen por municipio
+        function createMunicipalitySummary() {
+            var summary = {};
+
+            // Recorremos cada capa de GeoJSON y agrupamos por municipio
+            hmpPolLayer.eachLayer(function(layer) {
+                var municipio = layer.feature.properties.municipio;  // Asumimos que el campo es "municipio"
+                if (municipio) {
+                    if (!summary[municipio]) {
+                        summary[municipio] = 0;
+                    }
+                    summary[municipio]++;
+                }
+            });
+
+            // Generamos un resumen en el div #summary
+            var summaryContent = "<h4>Resumen por Municipio</h4><ul>";
+            for (var municipio in summary) {
+                summaryContent += "<li>" + municipio + ": " + summary[municipio] + " elementos</li>";
+            }
+            summaryContent += "</ul>";
+            document.getElementById('summary').innerHTML = summaryContent;
+        }
+
+        // Crear resumen por municipio al cargar el mapa
+        createMunicipalitySummary();
+    </script>
+
+</body>
+</html>
+
+
+
+
