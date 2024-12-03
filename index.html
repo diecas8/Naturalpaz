@@ -20,7 +20,6 @@
             border-radius: 5px;
             max-width: 300px;
             z-index: 9999;
-            font-size: 14px;  /* Ajuste del tamaño de fuente */
         }
 
         #credits {
@@ -34,17 +33,26 @@
             z-index: 9999;
         }
 
-        /* Responsividad para dispositivos móviles */
-        @media (max-width: 768px) {
-            #summary {
-                max-width: 100%;  /* Hacer el resumen más amplio en pantallas pequeñas */
-                bottom: 70px;  /* Ajustar la posición para que no quede sobre el mapa */
-            }
+        #codFincaContainer {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+            z-index: 9999;
+        }
 
-            #credits {
-                font-size: 12px;  /* Reducir el tamaño de los créditos en pantallas pequeñas */
-                padding: 8px;
-            }
+        label {
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        select {
+            padding: 5px;
+            font-size: 16px;
+            width: 100%;
         }
     </style>
 </head>
@@ -53,6 +61,14 @@
     <div id="map"></div>
     <div id="summary"></div>
     <div id="credits">Geoportal elaborado por: Diego Castaño</div>
+
+    <!-- Buscador de códigos de finca -->
+    <div id="codFincaContainer">
+        <label for="codFinca">Selecciona un código de finca:</label>
+        <select id="codFinca">
+            <!-- Las opciones serán agregadas dinámicamente -->
+        </select>
+    </div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-ajax/dist/leaflet.ajax.min.js"></script>
@@ -77,6 +93,24 @@
 
         // Añadir el mapa base predeterminado (OSM)
         osmLayer.addTo(map);
+
+        // Cargar capas GeoJSON desde la carpeta "Geoportal" y aplicar la función onEachFeature
+        var hmpPolLayer = new L.GeoJSON.AJAX("Hmp_pol.geojson", {
+            style: styleHmp,  // Aplicamos el estilo a la capa Hmp
+            onEachFeature: onEachFeature
+        });
+
+        var sitiosLayer = new L.GeoJSON.AJAX("Sitios.geojson", {
+            onEachFeature: onEachFeature
+        });
+
+        var cercasLayer = new L.GeoJSON.AJAX("cercas.geojson", {
+            onEachFeature: onEachFeature
+        });
+
+        var fincasLayer = new L.GeoJSON.AJAX("Fincas.geojson", {
+            onEachFeature: onEachFeature
+        });
 
         // Función para asignar colores según el tipo de Hmp
         function getColor(tipoHmp) {
@@ -133,23 +167,48 @@
             };
         }
 
-        // Cargar capas GeoJSON desde la carpeta "Geoportal" y aplicar la función onEachFeature
-        var hmpPolLayer = new L.GeoJSON.AJAX("Hmp_pol.geojson", {
-            style: styleHmp,  // Aplicamos el estilo a la capa Hmp
-            onEachFeature: onEachFeature
+        // Cargar la capa de Fincas y extraer los códigos
+        var fincaCodes = [];
+        var fincaLayer = new L.GeoJSON.AJAX("Fincas.geojson", {
+            onEachFeature: function (feature, layer) {
+                if (feature.properties && feature.properties.Cod_finca) {
+                    fincaCodes.push(feature.properties.Cod_finca);
+                }
+            }
         });
 
-        var sitiosLayer = new L.GeoJSON.AJAX("Sitios.geojson", {
-            onEachFeature: onEachFeature
+        fincaLayer.on('data:loaded', function () {
+            // Eliminar duplicados y ordenar alfabéticamente
+            fincaCodes = [...new Set(fincaCodes)].sort();
+
+            // Llenar el select con los códigos de finca
+            var selectElement = document.getElementById("codFinca");
+            fincaCodes.forEach(function (codigo) {
+                var option = document.createElement("option");
+                option.value = codigo;
+                option.textContent = codigo;
+                selectElement.appendChild(option);
+            });
         });
 
-        var cercasLayer = new L.GeoJSON.AJAX("cercas.geojson", {
-            onEachFeature: onEachFeature
-        });
+        // Función para resaltar la finca seleccionada
+        var selectedFincaLayer = null;
+        document.getElementById("codFinca").addEventListener("change", function () {
+            var selectedCode = this.value;
 
-        var fincasLayer = new L.GeoJSON.AJAX("Fincas.geojson", {
-            style: styleFincas,  // Aplicamos el estilo a la capa Fincas
-            onEachFeature: onEachFeature
+            // Si ya hay una finca seleccionada, eliminamos su estilo resaltado
+            if (selectedFincaLayer) {
+                selectedFincaLayer.setStyle({ weight: 3, color: 'brown' });
+            }
+
+            // Buscar la finca seleccionada y resaltarla
+            fincasLayer.eachLayer(function (layer) {
+                if (layer.feature.properties.Cod_finca === selectedCode) {
+                    selectedFincaLayer = layer;
+                    layer.setStyle({ weight: 5, color: 'blue' });  // Resaltar con un borde más grueso y azul
+                    map.fitBounds(layer.getBounds());  // Centrar el mapa sobre la finca
+                }
+            });
         });
 
         // Control de capas
@@ -202,8 +261,11 @@
 
         // Crear resumen por municipio al cargar el mapa
         createMunicipalitySummary();
-
     </script>
 
 </body>
 </html>
+
+
+
+
