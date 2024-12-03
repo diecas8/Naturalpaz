@@ -35,52 +35,52 @@
 
         #codFincaContainer {
             position: fixed;
-            top: 20px;
-            left: 20px;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%); /* Centrado horizontal */
             background: rgba(255, 255, 255, 0.8);
             padding: 10px;
             border-radius: 5px;
-            max-width: 300px;
+            max-width: 80%;
             z-index: 9999;
+            font-size: 14px;
         }
 
         label {
-            font-size: 16px;
+            font-size: 14px;
             margin-right: 10px;
         }
 
         select {
             padding: 5px;
-            font-size: 16px;
+            font-size: 14px;
             width: 100%;
         }
 
         /* Responsividad para dispositivos móviles */
         @media (max-width: 768px) {
+            #codFincaContainer {
+                width: 90%;  /* Aumentar el ancho en pantallas pequeñas */
+                bottom: 50px;  /* Ajustar la posición para no quedar sobre el mapa */
+            }
+
             #summary {
-                max-width: 100%;  /* Hacer el resumen más amplio en pantallas pequeñas */
-                bottom: 70px;  /* Ajustar la posición para que no quede sobre el mapa */
+                max-width: 100%;
+                bottom: 70px;
             }
 
             #credits {
-                font-size: 12px;  /* Reducir el tamaño de los créditos en pantallas pequeñas */
+                font-size: 12px;
                 padding: 8px;
             }
 
-            #codFincaContainer {
-                max-width: 100%;
-                left: 10px;
-                right: 10px;  /* Ajustar el contenedor a los bordes */
-                top: 80px;  /* Para no quedar sobre el mapa o el resumen */
-            }
-
             label {
-                font-size: 14px;  /* Reducir el tamaño de la etiqueta */
+                font-size: 12px;
             }
 
             select {
-                font-size: 14px;  /* Reducir el tamaño de la fuente del selector */
-                padding: 8px;  /* Ajustar el padding para mejor experiencia táctil */
+                font-size: 12px;
+                padding: 8px;
             }
         }
     </style>
@@ -234,8 +234,8 @@
             fincasLayer.eachLayer(function (layer) {
                 if (layer.feature.properties.Cod_finca === selectedCode) {
                     selectedFincaLayer = layer;
-                    layer.setStyle({ weight: 5, color: 'blue' });  // Resaltar con un borde más grueso y azul
-                    map.fitBounds(layer.getBounds());  // Centrar el mapa sobre la finca
+                    selectedFincaLayer.setStyle({ weight: 5, color: 'blue' });  // Resaltar con un borde más grueso y azul
+                    map.fitBounds(selectedFincaLayer.getBounds());  // Centrar el mapa sobre la finca
                 }
             });
         });
@@ -294,3 +294,5 @@
 
 </body>
 </html>
+
+
